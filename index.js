@@ -1,40 +1,85 @@
+"use strict";
+
 exports.garlandize = function(OPTIONS) {
 
-    OPTIONS.x_gap      || (OPTIONS.x_gap = 45); // standart x-axis distance beetween nodes. less distance - more nodes
-    OPTIONS.x_rand     || (OPTIONS.x_rand = 25); // random addition (0..25)
-    OPTIONS.angle_rand || (OPTIONS.angle_rand = 10); // random angle of node (0..25)
-    OPTIONS.amplitude  || (OPTIONS.amplitude = 4); // 1 to xxx. greater values == smoother distribution
-    OPTIONS.frequency  || (OPTIONS.frequency = 100); // 1 to xxx. 
-    OPTIONS.colorVars  || (OPTIONS.colorVars = ['blue-bulb', 'red-bulb', 'orange-bulb', 'green-bulb', 'yellow-bulb']);
-    OPTIONS.shapeVars  || (OPTIONS.shapeVars = [{name: 'long-bulb',
-                                                 bulbPath: 'M14.18,20.84C15,28.13,13.1,39.57,9.23,40S1,29.71.14,22.42,2.09,11.45,6,11,13.36,13.55,14.18,20.84Z',
-                                                 capPath: 'M10.14,12.4a14.82,14.82,0,0,0-8.39.95L.42,1.5A9.38,9.38,0,0,1,4.5.06,9.72,9.72,0,0,1,8.81.55Z'},
-                                                {name: 'mid-bulb',
-                                                 bulbPath: 'M20.45,10.69c4.27,4.52,8.47,13.56,5.63,16.24s-11.62-2-15.89-6.55S6.27,11.63,9.11,9,16.18,6.17,20.45,10.69Z',
-                                                 capPath: 'M13.08,7.35a17.26,17.26,0,0,0-6.14,5.8L0,5.8A10.91,10.91,0,0,1,2.5,2.3,11.13,11.13,0,0,1,6.14,0Z'},
-                                                {name: 'short-bulb',
-                                                 bulbPath: 'M14.12,17c-2.87,3.4-9.65,6.53-12.63,4s-1-9.72,1.83-13.12S9.91,5,12.89,7.54,17,13.64,14.12,17Z',
-                                                 capPath: 'M15.22,11a22.8,22.8,0,0,0-2.81-2.86A24.48,24.48,0,0,0,8.77,5.52L13.43,0A15,15,0,0,1,17,2.27a15.16,15.16,0,0,1,2.84,3.17Z'}]);
-    OPTIONS.cordStroke  || (OPTIONS.cordStroke = { color: "black", width: "2", dasharray: "0" });
+    // init options obj with default values
+    const availableOptions = {x_gap: 45,      // standart x-axis distance beetween nodes. less distance - more nodes
+                              x_rand: 25,     // random addition (0..25)
+                              angle_rand: 360, // random angle of node (0..360)
+                              amplitude: 4,   // 1 to xxx. greater values == smoother distribution
+                              frequency: 100, // 1 to xxx. 
+                              colorVars: ['blue-bulb', 'red-bulb', 'orange-bulb', 'green-bulb', 'yellow-bulb'],
+                              shapeVars: [{name: 'long-bulb',
+                                           bulbPath: 'M14.18,20.84C15,28.13,13.1,39.57,9.23,40S1,29.71.14,22.42,2.09,11.45,6,11,13.36,13.55,14.18,20.84Z',
+                                           capPath: 'M10.14,12.4a14.82,14.82,0,0,0-8.39.95L.42,1.5A9.38,9.38,0,0,1,4.5.06,9.72,9.72,0,0,1,8.81.55Z'},
+                                          {name: 'mid-bulb',
+                                           bulbPath: 'M20.45,10.69c4.27,4.52,8.47,13.56,5.63,16.24s-11.62-2-15.89-6.55S6.27,11.63,9.11,9,16.18,6.17,20.45,10.69Z',
+                                           capPath: 'M13.08,7.35a17.26,17.26,0,0,0-6.14,5.8L0,5.8A10.91,10.91,0,0,1,2.5,2.3,11.13,11.13,0,0,1,6.14,0Z'},
+                                          // {name: 'info',
+                                          //  bulbPath: 'M231.9,104.6c0.4,11.3-7.9,20.4-21.1,20.4c-11.7,0-20-9.1-20-20.4c0-11.7,8.7-20.7,20.7-20.7      C224,83.9,231.9,93,231.9,104.6z M194.9,338.5V156h33.2v182.6H194.9z'
+                                          // }
+                                          
+                                          {name: 'short-bulb',
+                                           bulbPath: 'M14.12,17c-2.87,3.4-9.65,6.53-12.63,4s-1-9.72,1.83-13.12S9.91,5,12.89,7.54,17,13.64,14.12,17Z',
+                                           capPath: 'M15.22,11a22.8,22.8,0,0,0-2.81-2.86A24.48,24.48,0,0,0,8.77,5.52L13.43,0A15,15,0,0,1,17,2.27a15.16,15.16,0,0,1,2.84,3.17Z'}
+                                         ],
+                              cordStroke: { color: "gray", width: "2", dasharray: "0" },
+                              curveSmooth: 0.5 };
+
+    // override default options with supplied OPTIONS
+    for (let [k,v] of Object.entries(availableOptions)) {
+        OPTIONS[k] || (OPTIONS[k] = v);
+    };
+    
+    console.log(OPTIONS);
+
+
+    // helpers
+    var line = function(pointA, pointB){
+        var lengthX = pointB[0] - pointA[0];
+        var lengthY = pointB[1] - pointA[1];
+        return {
+            length: Math.sqrt(Math.pow(lengthX, 2) + Math.pow(lengthY, 2)),
+            angle: Math.atan2(lengthY, lengthX)
+        }
+    }
+
+    var svgPath = (points, command) => {
+        var d = points.reduce((acc, point, i, a) => i === 0
+                              ? `M ${point[0]},${point[1]}`
+                              : `${acc} ${command(point, i, a)}`
+                              , '')
+        return `<path d="${d}" fill="none" stroke=${OPTIONS.cordStroke.color} stroke-width=${OPTIONS.cordStroke.width} />`
+        
+    }
+    var lineCommand = point => `L ${point[0]} ${point[1]}`
 
     
+    // end of helpers
+
+    
+
+    // handle each element with data-options (if available)
     var elementsToGarlandize = document.querySelectorAll('.garlandize');
+    
+    
     elementsToGarlandize.forEach(function(element) {
+        for (let [k,v] of Object.entries(element.dataset)) {
+            OPTIONS[k] = Number(v); // :TODO: make support for nested options 
+        };
+
+        let width = element.offsetWidth;
+        let height = element.offsetHeight;
         
-        var width = element.offsetWidth;
-        var height = element.offsetHeight;
-        // set position of parent as 'relative':
+        // set position of element as 'relative':
         // we want svg to lie as absolute layer with size of the parent
         element.style.position = "relative";
 
         // create absolute svg box
         var svg = document.createElementNS('http://www.w3.org/2000/svg', "svg");
         svg.style.position = "absolute";
-        // svg.style.width = "100%";
-        // svg.style.height = "100%";
         svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-        // svg.style.width
-        
+
         
         var points = [[0, height / OPTIONS.amplitude]];
         var x = 0;
@@ -43,74 +88,214 @@ exports.garlandize = function(OPTIONS) {
         console.log(width);
         var html = "";
 
-        while (x < width) {
+        // :TODO: make support for vertical elements. I need to swap x and y, but can't figure how
+
+        while (x < width) { 
             y = height/2 + height / OPTIONS.amplitude * Math.sin(x / OPTIONS.frequency);
             x += Math.floor(Math.random() * OPTIONS.x_rand) + OPTIONS.x_gap;
             // y = points.length % 3 * height/3 + 15;
             points.push([x, y]); // :TODO: x and y values must be based on the size of the svg
             let shapeObj = OPTIONS.shapeVars[Math.floor(Math.random() * OPTIONS.shapeVars.length)];
-            // SVG RFC still very limited. I need to generate whole radialgradient tag for each object (can't use stop color tag as class)
-            let color = OPTIONS.colorVars[Math.floor(Math.random() * OPTIONS.colorVars.length)];
-            // angle += 10; //
-            var angle = Math.floor(Math.random() * 10);
-            // if (svg.width.animVal.value - x > 25) { // quick fix for skipping last lamp
-            // points.push([x, y]);
-            // let g = document.createElement("g");
-            // g.setAttribute("transform", `translate(${x}, ${y}) rotate(${angle}) scale(0.6)`);
-            // // for (variant in OPTIONS.shapeVars) {
-            // let p1 = document.createElement("path");
-            // p1.setAttribute("class", `${shapeObj.name} ${color}`);
-            // p1.setAttribute("d", `${shapeObj.bulbPath}`);
-
-            // let p2 = document.createElement("path");
-            // p2.setAttribute("class", `glow ${shapeObj.name} ${color}`);
-            // p2.setAttribute("d", `${shapeObj.bulbPath}`);
-            //                          }
-            // element.appendChild(svg);
-            html += `<g transform='translate(${x}, ${y}) rotate(${angle}) scale(0.6)'>
-                       <path class='${shapeObj.name} ${color}' d='${shapeObj.bulbPath}'></path>
-                       <path class='glow ${shapeObj.name} ${color}' d='${shapeObj.bulbPath}'></path>
-                       <path d='${shapeObj.capPath}'></path>
-                     </g>`;
-            // };
             
+            let color = OPTIONS.colorVars[Math.floor(Math.random() * OPTIONS.colorVars.length)];
+            
+            let angle = Math.floor(Math.random() * OPTIONS.angle_rand);
+
+            // note: transform property is skewing the origin of the element.
+            // for some reason it is spinning as 'transform-origin: left;' by default
+            // it's ok for this case, but if you want to rotate the element around its center
+            // you need to do something
+            html += `<g transform='translate(${x}, ${y}) rotate(${angle}) scale(0.6)'>
+                       <g class='animated' transform='rotate(${angle})'>
+                         <path class='${shapeObj.name} ${color}' d='${shapeObj.bulbPath}'></path>
+                         <path class='glow ${shapeObj.name} ${color}' d='${shapeObj.bulbPath}'></path>
+                         <path d='${shapeObj.capPath}'></path>
+                       </g>
+                     </g>`;
         };
 
-        var line = function(pointA, pointB){
-            var lengthX = pointB[0] - pointA[0];
-            var lengthY = pointB[1] - pointA[1];
-            return {
-                length: Math.sqrt(Math.pow(lengthX, 2) + Math.pow(lengthY, 2)),
-                angle: Math.atan2(lengthY, lengthX)
-            }
-        }
-
-        var svgPath = (points, command) => {
-            // build the d attributes by looping over the points
-            var d = points.reduce((acc, point, i, a) => i === 0
-                                  // if first point
-                                  ? `M ${point[0]},${point[1]}`
-                                  // else
-                                  : `${acc} ${command(point, i, a)}`
-                                  , '')
-            return `<path d="${d}" fill="none" stroke="#1a396c" stroke-width="2" />`
-            
-        }
-        var lineCommand = point => `L ${point[0]} ${point[1]}`
-
-        element.appendChild(svg);
-        svg.insertAdjacentHTML("beforeend", svgPath(points, lineCommand));
-        svg.insertAdjacentHTML("beforeend", html);
-
-
         
-        console.log("INSIDE");
+        element.appendChild(svg);
+        svg.insertAdjacentHTML("beforeend", html);
+        svg.insertAdjacentHTML("beforeend", svgPath(points, lineCommand));
+        
+
+        // SVG RFC still very limited. I need to generate whole radialgradient tag for each object (can't use stop color tag as class)
+        // This is specific code for this sprite :TODO: make code more generic (I'll do it if this repo will get atleast 50 stars :)
+        var colors = [{klass: "blue-bulb", mid_color: "#f15a24", end_color:'#c1272d'},
+                      {klass: "red-bulb", mid_color: "red", end_color:'#ba1c24'},
+                      {klass: "orange-bulb", mid_color: "#0071bc", end_color:'#2e3192'},
+                      {klass: "green-bulb",  mid_color: "#009245", end_color:'#005445'},
+                      {klass: "yellow-bulb", mid_color: "#fff380", end_color:'gold'}]
+        var shapes = ['long-bulb', 'mid-bulb', 'short-bulb']
+
+        // function cartProd(xs, ys) {
+        //     return [].concat.apply([], xs.map(function (x) {
+        //         return [].concat.apply([], ys.map(function (y) {
+        //             return [[x, y]];
+        //         }));
+        //     }));
+        // };
+        
+        // var shapesXColors = cartProd(shapes, colors)
+        
+        var defs = `<defs>
+                      <filter filterUnits="userSpaceOnUse" height="500%" id="red-glow" width="1100%" x="-250%" y="-90%">
+                      <feGaussianBlur in="SourceGraphic" result="blur5" stdDeviation="5"></feGaussianBlur>
+                      <feGaussianBlur in="SourceGraphic" result="blur10" stdDeviation="10"></feGaussianBlur>
+                      <feGaussianBlur in="SourceGraphic" result="blur20" stdDeviation="20"></feGaussianBlur>
+                      <feGaussianBlur in="SourceGraphic" result="blur30" stdDeviation="30"></feGaussianBlur>
+                      <feGaussianBlur in="SourceGraphic" result="blur50" stdDeviation="50"></feGaussianBlur>
+                      <feMerge result="blur-merged">
+                        <feMergeNode in="blur5"></feMergeNode>
+                        <feMergeNode in="blur10"></feMergeNode>
+                        <feMergeNode in="blur20"></feMergeNode>
+                        <feMergeNode in="blur30"></feMergeNode>
+                        <feMergeNode in="blur50"></feMergeNode>
+                        <feMergeNode in="SourceGraphic"></feMergeNode>
+                     </feMerge>
+                     </filter>`
+        shapes.forEach(function(shape) {
+            colors.forEach(function(color) {
+                defs += `<radialGradient cx="28.83" cy="57.22" 
+                           gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" 
+                           gradientUnits="userSpaceOnUse" 
+                           id=${shape}-${color.klass} r="13.14">
+                             <stop offset="0" stop-color="#fff"></stop>
+                             <stop offset="0.65" stop-color=${color.mid_color}></stop>
+                             <stop offset="1" stop-color=${color.end_color}></stop>
+                         </radialGradient>`
+            }
+                          }
+                
+        // for (let shape of Array.prototype.entries(shapes)) {
+        //     for (let color of Array.prototype.entries(shapes)) {
+        // }
+
+        var generatedDefs = `<defs>
+<filter filterUnits="userSpaceOnUse" height="500%" id="red-glow" width="1100%" x="-250%" y="-90%">
+<!-- blur the text at different levels -->
+<feGaussianBlur in="SourceGraphic" result="blur5" stdDeviation="5"></feGaussianBlur>
+<feGaussianBlur in="SourceGraphic" result="blur10" stdDeviation="10"></feGaussianBlur>
+<feGaussianBlur in="SourceGraphic" result="blur20" stdDeviation="20"></feGaussianBlur>
+<feGaussianBlur in="SourceGraphic" result="blur30" stdDeviation="30"></feGaussianBlur>
+<feGaussianBlur in="SourceGraphic" result="blur50" stdDeviation="50"></feGaussianBlur>
+<!-- merge all the blurs except for the first one -->
+<feMerge result="blur-merged">
+<feMergeNode in="blur5"></feMergeNode>
+<feMergeNode in="blur10"></feMergeNode>
+<feMergeNode in="blur20"></feMergeNode>
+<feMergeNode in="blur30"></feMergeNode>
+<feMergeNode in="blur50"></feMergeNode>
+<feMergeNode in="SourceGraphic"></feMergeNode>
+</feMerge>
+<!-- recolour the merged blurs red -->
+</filter>
+<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="long-bulb-blue-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="#f15a24"></stop>
+<stop offset="1" stop-color="#c1272d"></stop>
+</radialGradient>
+<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="long-bulb-red-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="red"></stop>
+<stop offset="1" stop-color="#ba1c24"></stop>
+</radialGradient>
+<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="long-bulb-orange-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="#0071bc"></stop>
+<stop offset="1" stop-color="#2e3192"></stop>
+</radialGradient>
+<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="long-bulb-green-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="#009245"></stop>
+<stop offset="1" stop-color="#005445"></stop>
+</radialGradient>
+<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="long-bulb-yellow-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="#fff380"></stop>
+<stop offset="1" stop-color="gold"></stop>
+</radialGradient>
+<radialGradient cx="-64.01" cy="-680.08" gradientTransform="matrix(0.73, -0.69, 0.49, 0.52, 398.13, 327.89)" gradientUnits="userSpaceOnUse" id="mid-bulb-blue-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="#f15a24"></stop>
+<stop offset="1" stop-color="#c1272d"></stop>
+</radialGradient>
+<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="mid-bulb-blue-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="#f15a24"></stop>
+<stop offset="1" stop-color="#c1272d"></stop>
+</radialGradient>
+<radialGradient cx="-64.01" cy="-680.08" gradientTransform="matrix(0.73, -0.69, 0.49, 0.52, 398.13, 327.89)" gradientUnits="userSpaceOnUse" id="mid-bulb-red-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="red"></stop>
+<stop offset="1" stop-color="#ba1c24"></stop>
+</radialGradient>
+<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="mid-bulb-red-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="red"></stop>
+<stop offset="1" stop-color="#ba1c24"></stop>
+</radialGradient>
+<radialGradient cx="-64.01" cy="-680.08" gradientTransform="matrix(0.73, -0.69, 0.49, 0.52, 398.13, 327.89)" gradientUnits="userSpaceOnUse" id="mid-bulb-orange-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="#0071bc"></stop>
+<stop offset="1" stop-color="#2e3192"></stop>
+</radialGradient>
+<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="mid-bulb-orange-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="#0071bc"></stop>
+<stop offset="1" stop-color="#2e3192"></stop>
+</radialGradient>
+<radialGradient cx="-64.01" cy="-680.08" gradientTransform="matrix(0.73, -0.69, 0.49, 0.52, 398.13, 327.89)" gradientUnits="userSpaceOnUse" id="mid-bulb-green-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="#009245"></stop>
+<stop offset="1" stop-color="#005445"></stop>
+</radialGradient>
+<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="mid-bulb-green-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="#009245"></stop>
+<stop offset="1" stop-color="#005445"></stop>
+</radialGradient>
+<radialGradient cx="-64.01" cy="-680.08" gradientTransform="matrix(0.73, -0.69, 0.49, 0.52, 398.13, 327.89)" gradientUnits="userSpaceOnUse" id="mid-bulb-yellow-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="#fff380"></stop>
+<stop offset="1" stop-color="gold"></stop>
+</radialGradient>
+<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="mid-bulb-yellow-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="#fff380"></stop>
+<stop offset="1" stop-color="gold"></stop>
+</radialGradient>
+<radialGradient cx="-56.06" cy="210.55" gradientTransform="matrix(0.76, 0.64, -0.33, 0.39, 120.85, -33.71)" gradientUnits="userSpaceOnUse" id="short-bulb-blue-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="#f15a24"></stop>
+<stop offset="1" stop-color="#c1272d"></stop>
+</radialGradient>
+<radialGradient cx="-56.06" cy="210.55" gradientTransform="matrix(0.76, 0.64, -0.33, 0.39, 120.85, -33.71)" gradientUnits="userSpaceOnUse" id="short-bulb-red-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="red"></stop>
+<stop offset="1" stop-color="#ba1c24"></stop>
+</radialGradient>
+<radialGradient cx="-56.06" cy="210.55" gradientTransform="matrix(0.76, 0.64, -0.33, 0.39, 120.85, -33.71)" gradientUnits="userSpaceOnUse" id="short-bulb-orange-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="#0071bc"></stop>
+<stop offset="1" stop-color="#2e3192"></stop>
+</radialGradient>
+<radialGradient cx="-56.06" cy="210.55" gradientTransform="matrix(0.76, 0.64, -0.33, 0.39, 120.85, -33.71)" gradientUnits="userSpaceOnUse" id="short-bulb-green-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="#009245"></stop>
+<stop offset="1" stop-color="#005445"></stop>
+</radialGradient>
+<radialGradient cx="-56.06" cy="210.55" gradientTransform="matrix(0.76, 0.64, -0.33, 0.39, 120.85, -33.71)" gradientUnits="userSpaceOnUse" id="short-bulb-yellow-bulb" r="13.14">
+<stop offset="0" stop-color="#fff"></stop>
+<stop offset="0.65" stop-color="#fff380"></stop>
+<stop offset="1" stop-color="gold"></stop>
+</radialGradient>
+</defs>`
+        svg.insertAdjacentHTML("beforeend", defs);
+        
     });
+
+    
 }
 
-
-function placeSprites(){}
-
-// module.exports = ["garlandize"];
-// export { garlandize };
-;
