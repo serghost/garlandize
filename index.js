@@ -108,7 +108,7 @@ exports.garlandize = function(OPTIONS) {
             html += `<g transform='translate(${x}, ${y}) rotate(${angle}) scale(0.6)'>
                        <g class='animated' transform='rotate(${angle})'>
                          <path class='${shapeObj.name} ${color}' d='${shapeObj.bulbPath}'></path>
-                         <path class='glow ${shapeObj.name} ${color}' d='${shapeObj.bulbPath}'></path>
+                         <path class='garlandize-glow ${shapeObj.name} ${color}' d='${shapeObj.bulbPath}'></path>
                          <path d='${shapeObj.capPath}'></path>
                        </g>
                      </g>`;
@@ -118,7 +118,6 @@ exports.garlandize = function(OPTIONS) {
         element.appendChild(svg);
         svg.insertAdjacentHTML("beforeend", html);
         svg.insertAdjacentHTML("beforeend", svgPath(points, lineCommand));
-        
 
         // SVG RFC still very limited. I need to generate whole radialgradient tag for each object (can't use stop color tag as class)
         // This is specific code for this sprite :TODO: make code more generic (I'll do it if this repo will get atleast 50 stars :)
@@ -127,20 +126,12 @@ exports.garlandize = function(OPTIONS) {
                       {klass: "orange-bulb", mid_color: "#0071bc", end_color:'#2e3192'},
                       {klass: "green-bulb",  mid_color: "#009245", end_color:'#005445'},
                       {klass: "yellow-bulb", mid_color: "#fff380", end_color:'gold'}]
-        var shapes = ['long-bulb', 'mid-bulb', 'short-bulb']
-
-        // function cartProd(xs, ys) {
-        //     return [].concat.apply([], xs.map(function (x) {
-        //         return [].concat.apply([], ys.map(function (y) {
-        //             return [[x, y]];
-        //         }));
-        //     }));
-        // };
-        
-        // var shapesXColors = cartProd(shapes, colors)
+        var shapes = [{klass: 'long-bulb', cx: "28.83", cy: "57.22", gradientTransform: "matrix(0.99,-0.11,0.09,0.84,-26.95,-22.33)"},
+                      {klass: 'mid-bulb', cx: "-64.01", cy: "-680.08", gradientTransform: "matrix(0.73,-0.69,0.49,0.52,398.13,327.89)"},
+                      {klass: 'short-bulb', cx: "-56.06", cy: "210.55", gradientTransform: "matrix(0.76,0.64,-0.33,0.39,120.85,-33.71)"}]
         
         var defs = `<defs>
-                      <filter filterUnits="userSpaceOnUse" height="500%" id="red-glow" width="1100%" x="-250%" y="-90%">
+                      <filter filterUnits="userSpaceOnUse" height="500%" id="garlandize-glow" width="1100%" x="-250%" y="-90%">
                       <feGaussianBlur in="SourceGraphic" result="blur5" stdDeviation="5"></feGaussianBlur>
                       <feGaussianBlur in="SourceGraphic" result="blur10" stdDeviation="10"></feGaussianBlur>
                       <feGaussianBlur in="SourceGraphic" result="blur20" stdDeviation="20"></feGaussianBlur>
@@ -155,147 +146,33 @@ exports.garlandize = function(OPTIONS) {
                         <feMergeNode in="SourceGraphic"></feMergeNode>
                      </feMerge>
                      </filter>`
+
+        var styles = `<style>
+                        @keyframes garlandize-flicker { 0% { opacity: 1; }  50% { opacity: 0.4; } 100% { opacity: 1; }}
+                        .garlandize-glow {filter:url(#garlandize-glow); transform: translateZ(0); will-change: transform;}
+                        .green-bulb{animation: garlandize-flicker 5s infinite step-end;}
+                        .yellow-bulb{animation: garlandize-flicker 5s infinite 1s step-end;}
+                        .red-bulb{animation: garlandize-flicker 5s infinite 2s step-end;}
+                        .blue-bulb{animation: garlandize-flicker 5s infinite 3s step-end;}
+                        .orange-bulb{animation: garlandize-flicker 5s infinite 4s step-end;}`
+        
         shapes.forEach(function(shape) {
             colors.forEach(function(color) {
-                defs += `<radialGradient cx="28.83" cy="57.22" 
-                           gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" 
+                // hmm. js interpolation cant into spaces in the ${var}
+                defs += `<radialGradient cx=${shape.cx} cy=${shape.cy}
+                           gradientTransform=${shape.gradientTransform}
                            gradientUnits="userSpaceOnUse" 
-                           id=${shape}-${color.klass} r="13.14">
+                           id=${shape.klass}-${color.klass} r="13.14">
                              <stop offset="0" stop-color="#fff"></stop>
                              <stop offset="0.65" stop-color=${color.mid_color}></stop>
                              <stop offset="1" stop-color=${color.end_color}></stop>
                          </radialGradient>`
-            }
-                          }
-                
-        // for (let shape of Array.prototype.entries(shapes)) {
-        //     for (let color of Array.prototype.entries(shapes)) {
-        // }
+                styles += `.${shape.klass}.${color.klass} { fill: url(#${shape.klass}-${color.klass}); }`
+            });
+        });
 
-        var generatedDefs = `<defs>
-<filter filterUnits="userSpaceOnUse" height="500%" id="red-glow" width="1100%" x="-250%" y="-90%">
-<!-- blur the text at different levels -->
-<feGaussianBlur in="SourceGraphic" result="blur5" stdDeviation="5"></feGaussianBlur>
-<feGaussianBlur in="SourceGraphic" result="blur10" stdDeviation="10"></feGaussianBlur>
-<feGaussianBlur in="SourceGraphic" result="blur20" stdDeviation="20"></feGaussianBlur>
-<feGaussianBlur in="SourceGraphic" result="blur30" stdDeviation="30"></feGaussianBlur>
-<feGaussianBlur in="SourceGraphic" result="blur50" stdDeviation="50"></feGaussianBlur>
-<!-- merge all the blurs except for the first one -->
-<feMerge result="blur-merged">
-<feMergeNode in="blur5"></feMergeNode>
-<feMergeNode in="blur10"></feMergeNode>
-<feMergeNode in="blur20"></feMergeNode>
-<feMergeNode in="blur30"></feMergeNode>
-<feMergeNode in="blur50"></feMergeNode>
-<feMergeNode in="SourceGraphic"></feMergeNode>
-</feMerge>
-<!-- recolour the merged blurs red -->
-</filter>
-<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="long-bulb-blue-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="#f15a24"></stop>
-<stop offset="1" stop-color="#c1272d"></stop>
-</radialGradient>
-<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="long-bulb-red-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="red"></stop>
-<stop offset="1" stop-color="#ba1c24"></stop>
-</radialGradient>
-<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="long-bulb-orange-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="#0071bc"></stop>
-<stop offset="1" stop-color="#2e3192"></stop>
-</radialGradient>
-<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="long-bulb-green-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="#009245"></stop>
-<stop offset="1" stop-color="#005445"></stop>
-</radialGradient>
-<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="long-bulb-yellow-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="#fff380"></stop>
-<stop offset="1" stop-color="gold"></stop>
-</radialGradient>
-<radialGradient cx="-64.01" cy="-680.08" gradientTransform="matrix(0.73, -0.69, 0.49, 0.52, 398.13, 327.89)" gradientUnits="userSpaceOnUse" id="mid-bulb-blue-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="#f15a24"></stop>
-<stop offset="1" stop-color="#c1272d"></stop>
-</radialGradient>
-<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="mid-bulb-blue-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="#f15a24"></stop>
-<stop offset="1" stop-color="#c1272d"></stop>
-</radialGradient>
-<radialGradient cx="-64.01" cy="-680.08" gradientTransform="matrix(0.73, -0.69, 0.49, 0.52, 398.13, 327.89)" gradientUnits="userSpaceOnUse" id="mid-bulb-red-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="red"></stop>
-<stop offset="1" stop-color="#ba1c24"></stop>
-</radialGradient>
-<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="mid-bulb-red-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="red"></stop>
-<stop offset="1" stop-color="#ba1c24"></stop>
-</radialGradient>
-<radialGradient cx="-64.01" cy="-680.08" gradientTransform="matrix(0.73, -0.69, 0.49, 0.52, 398.13, 327.89)" gradientUnits="userSpaceOnUse" id="mid-bulb-orange-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="#0071bc"></stop>
-<stop offset="1" stop-color="#2e3192"></stop>
-</radialGradient>
-<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="mid-bulb-orange-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="#0071bc"></stop>
-<stop offset="1" stop-color="#2e3192"></stop>
-</radialGradient>
-<radialGradient cx="-64.01" cy="-680.08" gradientTransform="matrix(0.73, -0.69, 0.49, 0.52, 398.13, 327.89)" gradientUnits="userSpaceOnUse" id="mid-bulb-green-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="#009245"></stop>
-<stop offset="1" stop-color="#005445"></stop>
-</radialGradient>
-<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="mid-bulb-green-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="#009245"></stop>
-<stop offset="1" stop-color="#005445"></stop>
-</radialGradient>
-<radialGradient cx="-64.01" cy="-680.08" gradientTransform="matrix(0.73, -0.69, 0.49, 0.52, 398.13, 327.89)" gradientUnits="userSpaceOnUse" id="mid-bulb-yellow-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="#fff380"></stop>
-<stop offset="1" stop-color="gold"></stop>
-</radialGradient>
-<radialGradient cx="28.83" cy="57.22" gradientTransform="matrix(0.99, -0.11, 0.09, 0.84, -26.95, -22.33)" gradientUnits="userSpaceOnUse" id="mid-bulb-yellow-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="#fff380"></stop>
-<stop offset="1" stop-color="gold"></stop>
-</radialGradient>
-<radialGradient cx="-56.06" cy="210.55" gradientTransform="matrix(0.76, 0.64, -0.33, 0.39, 120.85, -33.71)" gradientUnits="userSpaceOnUse" id="short-bulb-blue-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="#f15a24"></stop>
-<stop offset="1" stop-color="#c1272d"></stop>
-</radialGradient>
-<radialGradient cx="-56.06" cy="210.55" gradientTransform="matrix(0.76, 0.64, -0.33, 0.39, 120.85, -33.71)" gradientUnits="userSpaceOnUse" id="short-bulb-red-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="red"></stop>
-<stop offset="1" stop-color="#ba1c24"></stop>
-</radialGradient>
-<radialGradient cx="-56.06" cy="210.55" gradientTransform="matrix(0.76, 0.64, -0.33, 0.39, 120.85, -33.71)" gradientUnits="userSpaceOnUse" id="short-bulb-orange-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="#0071bc"></stop>
-<stop offset="1" stop-color="#2e3192"></stop>
-</radialGradient>
-<radialGradient cx="-56.06" cy="210.55" gradientTransform="matrix(0.76, 0.64, -0.33, 0.39, 120.85, -33.71)" gradientUnits="userSpaceOnUse" id="short-bulb-green-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="#009245"></stop>
-<stop offset="1" stop-color="#005445"></stop>
-</radialGradient>
-<radialGradient cx="-56.06" cy="210.55" gradientTransform="matrix(0.76, 0.64, -0.33, 0.39, 120.85, -33.71)" gradientUnits="userSpaceOnUse" id="short-bulb-yellow-bulb" r="13.14">
-<stop offset="0" stop-color="#fff"></stop>
-<stop offset="0.65" stop-color="#fff380"></stop>
-<stop offset="1" stop-color="gold"></stop>
-</radialGradient>
-</defs>`
         svg.insertAdjacentHTML("beforeend", defs);
-        
+        svg.insertAdjacentHTML("beforeend", styles);
     });
-
-    
 }
 
