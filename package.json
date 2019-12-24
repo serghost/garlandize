@@ -1,6 +1,6 @@
 {
   "name": "garlandize",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Generates SVG garland-like decorations for HTML element (perfect for christmas)",
     "main": "index.js",
   "scripts": {

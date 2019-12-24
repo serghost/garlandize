@@ -5,7 +5,7 @@ exports.garlandize = function(OPTIONS) {
     // init options obj with default values
     const availableOptions = {x_gap: 45,      // standart x-axis distance beetween nodes. less distance - more nodes
                               x_rand: 25,     // random addition (0..25)
-                              angle_rand: 360, // random angle of node (0..360)
+                              angle_rand: 360,// random angle of node (0..360)
                               amplitude: 4,   // 1 to xxx. greater values == smoother distribution
                               frequency: 100, // 1 to xxx. 
                               colorVars: ['blue-bulb', 'red-bulb', 'orange-bulb', 'green-bulb', 'yellow-bulb'],
@@ -20,11 +20,11 @@ exports.garlandize = function(OPTIONS) {
                                           // }
                                           
                                           {name: 'short-bulb',
-                                           bulbPath: 'M14.12,17c-2.87,3.4-9.65,6.53-12.63,4s-1-9.72,1.83-13.12S9.91,5,12.89,7.54,17,13.64,14.12,17Z',
-                                           capPath: 'M15.22,11a22.8,22.8,0,0,0-2.81-2.86A24.48,24.48,0,0,0,8.77,5.52L13.43,0A15,15,0,0,1,17,2.27a15.16,15.16,0,0,1,2.84,3.17Z'}
+                                           bulbPath: 'M7.33,8c3.2-2.34,7.09-2.35,9.92,1.61s4.67,11.85,1.57,14.15-10.18-1.93-13-5.89S4.18,10.19,7.33,8Z',
+                                           capPath: 'M0,5A12.37,12.37,0,0,1,3,2,12.43,12.43,0,0,1,6.8,0c1.63,2.21,3.13,4.37,4.72,6.48A29.37,29.37,0,0,0,7.66,8.82a16.49,16.49,0,0,0-3,2.7C3.14,9.36,1.54,7.24,0,5Z'}
                                          ],
                               cordStroke: { color: "gray", width: "2", dasharray: "0" },
-                              curveSmooth: 0.5 };
+                              curveSmooth: 0.2 };
 
     // override default options with supplied OPTIONS
     for (let [k,v] of Object.entries(availableOptions)) {
@@ -54,6 +54,25 @@ exports.garlandize = function(OPTIONS) {
     }
     var lineCommand = point => `L ${point[0]} ${point[1]}`
 
+    // smooth angles with bezier curves
+    // thanks to https://medium.com/@francoisromain/smooth-a-svg-path-with-cubic-bezier-curves-e37b49d46c74
+    var controlPoint = (current, previous, next, reverse) => {
+        var p = previous || current
+        var n = next || current
+        var smoothing = OPTIONS.curveSmooth
+        var o = line(p, n)
+        var angle = o.angle + (reverse ? Math.PI : 0)
+        var length = o.length * smoothing
+        var x = current[0] + Math.cos(angle) * length
+        var y = current[1] + Math.sin(angle) * length
+        return [x, y]
+    }
+
+    var bezierCommand = (point, i, a) => {
+        var [cpsX, cpsY] = controlPoint(a[i - 1], a[i - 2], point)
+        var [cpeX, cpeY] = controlPoint(point, a[i - 1], a[i + 1], true)
+        return `C ${cpsX},${cpsY} ${cpeX},${cpeY} ${point[0]},${point[1]}`
+    }
     
     // end of helpers
 
@@ -117,7 +136,7 @@ exports.garlandize = function(OPTIONS) {
         
         element.appendChild(svg);
         svg.insertAdjacentHTML("beforeend", html);
-        svg.insertAdjacentHTML("beforeend", svgPath(points, lineCommand));
+        svg.insertAdjacentHTML("beforeend", svgPath(points, bezierCommand));
 
         // SVG RFC still very limited. I need to generate whole radialgradient tag for each object (can't use stop color tag as class)
         // This is specific code for this sprite :TODO: make code more generic (I'll do it if this repo will get atleast 50 stars :)
