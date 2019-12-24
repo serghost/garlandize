@@ -5,10 +5,10 @@ exports.garlandize = function(OPTIONS) {
     // init options obj with default values
     const availableOptions = {x_gap: 45,      // standart x-axis distance beetween nodes. less distance - more nodes
                               x_rand: 25,     // random addition (0..25)
-                              angle_rand: 360,// random angle of node (0..360)
+                              angle_rand: 50, // random angle of node (0..180)
                               amplitude: 4,   // 1 to xxx. greater values == smoother distribution
                               frequency: 100, // 1 to xxx. 
-                              colorVars: ['blue-bulb', 'red-bulb', 'orange-bulb', 'green-bulb', 'yellow-bulb'],
+                              colorVars: ['blue-bulb', 'red-bulb', 'orange-bulb', 'green-bulb', 'yellow-bulb', 'violet-bulb'],
                               shapeVars: [{name: 'long-bulb',
                                            bulbPath: 'M14.18,20.84C15,28.13,13.1,39.57,9.23,40S1,29.71.14,22.42,2.09,11.45,6,11,13.36,13.55,14.18,20.84Z',
                                            capPath: 'M10.14,12.4a14.82,14.82,0,0,0-8.39.95L.42,1.5A9.38,9.38,0,0,1,4.5.06,9.72,9.72,0,0,1,8.81.55Z'},
@@ -31,9 +31,6 @@ exports.garlandize = function(OPTIONS) {
         OPTIONS[k] || (OPTIONS[k] = v);
     };
     
-    console.log(OPTIONS);
-
-
     // helpers
     var line = function(pointA, pointB){
         var lengthX = pointB[0] - pointA[0];
@@ -76,11 +73,9 @@ exports.garlandize = function(OPTIONS) {
     
     // end of helpers
 
-    
 
     // handle each element with data-options (if available)
     var elementsToGarlandize = document.querySelectorAll('.garlandize');
-    
     
     elementsToGarlandize.forEach(function(element) {
         for (let [k,v] of Object.entries(element.dataset)) {
@@ -104,7 +99,6 @@ exports.garlandize = function(OPTIONS) {
         var x = 0;
         var y = 0;
 
-        console.log(width);
         var html = "";
 
         // :TODO: make support for vertical elements. I need to swap x and y, but can't figure how
@@ -118,14 +112,17 @@ exports.garlandize = function(OPTIONS) {
             
             let color = OPTIONS.colorVars[Math.floor(Math.random() * OPTIONS.colorVars.length)];
             
-            let angle = Math.floor(Math.random() * OPTIONS.angle_rand);
-
+            let angle = function() {
+                let a = Math.random() * (OPTIONS.angle_rand * 2) + 180 - OPTIONS.angle_rand/2;
+                if (a > OPTIONS.angle_rand / 2 + 180) a += 180 - OPTIONS.angle_rand;
+                return a + 25;
+            }();
             // note: transform property is skewing the origin of the element.
             // for some reason it is spinning as 'transform-origin: left;' by default
             // it's ok for this case, but if you want to rotate the element around its center
             // you need to do something
             html += `<g transform='translate(${x}, ${y}) rotate(${angle}) scale(0.6)'>
-                       <g class='animated' transform='rotate(${angle})'>
+                       <g class='animated'>
                          <path class='${shapeObj.name} ${color}' d='${shapeObj.bulbPath}'></path>
                          <path class='garlandize-glow ${shapeObj.name} ${color}' d='${shapeObj.bulbPath}'></path>
                          <path d='${shapeObj.capPath}'></path>
@@ -144,7 +141,8 @@ exports.garlandize = function(OPTIONS) {
                       {klass: "red-bulb", mid_color: "red", end_color:'#ba1c24'},
                       {klass: "orange-bulb", mid_color: "#0071bc", end_color:'#2e3192'},
                       {klass: "green-bulb",  mid_color: "#009245", end_color:'#005445'},
-                      {klass: "yellow-bulb", mid_color: "#fff380", end_color:'gold'}]
+                      {klass: "yellow-bulb", mid_color: "#fff380", end_color:'gold'},
+                      {klass: "violet-bulb", mid_color: "#cc99ff", end_color:'#660099'}]
         var shapes = [{klass: 'long-bulb', cx: "28.83", cy: "57.22", gradientTransform: "matrix(0.99,-0.11,0.09,0.84,-26.95,-22.33)"},
                       {klass: 'mid-bulb', cx: "-64.01", cy: "-680.08", gradientTransform: "matrix(0.73,-0.69,0.49,0.52,398.13,327.89)"},
                       {klass: 'short-bulb', cx: "-56.06", cy: "210.55", gradientTransform: "matrix(0.76,0.64,-0.33,0.39,120.85,-33.71)"}]
@@ -169,11 +167,12 @@ exports.garlandize = function(OPTIONS) {
         var styles = `<style>
                         @keyframes garlandize-flicker { 0% { opacity: 1; }  50% { opacity: 0.4; } 100% { opacity: 1; }}
                         .garlandize-glow {filter:url(#garlandize-glow); transform: translateZ(0); will-change: transform;}
-                        .green-bulb{animation: garlandize-flicker 5s infinite step-end;}
-                        .yellow-bulb{animation: garlandize-flicker 5s infinite 1s step-end;}
-                        .red-bulb{animation: garlandize-flicker 5s infinite 2s step-end;}
-                        .blue-bulb{animation: garlandize-flicker 5s infinite 3s step-end;}
-                        .orange-bulb{animation: garlandize-flicker 5s infinite 4s step-end;}`
+                        .green-bulb{animation: garlandize-flicker 6s infinite step-end;}
+                        .yellow-bulb{animation: garlandize-flicker 6s infinite 1s step-end;}
+                        .red-bulb{animation: garlandize-flicker 6s infinite 2s step-end;}
+                        .blue-bulb{animation: garlandize-flicker 6s infinite 3s step-end;}
+                        .orange-bulb{animation: garlandize-flicker 6s infinite 4s step-end;}
+                        .violet-bulb{animation: garlandize-flicker 6s infinite 5s step-end;}`
         
         shapes.forEach(function(shape) {
             colors.forEach(function(color) {
